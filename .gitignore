@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data (often too large / not meant for git)
+data/*
+!data/.gitkeep
+
+# OS/IDE
+.DS_Store
+.vscode/
