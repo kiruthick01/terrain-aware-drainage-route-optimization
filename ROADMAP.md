@@ -204,3 +204,112 @@ flooding change on a real Chennai neighborhood.
 Days 1–2: Phase 0 close-out → Days 3–8: Phase 1 → Days 9–13: Phase 2a →
 Days 14–17: Phase 4 → Days 18–23: Phase 5 → buffer/polish.
 ~3–4 weeks to a live, shareable prototype, no Windows required.
+
+
+
+## Phase 7 — Drainage Route Recommendation Engine
+
+**Goal:** Move from "here's where it floods" to "here's what to do about
+it" — the literal meaning of the project's name, not yet built.
+
+- [ ] Identify candidate drain/culvert locations using flow accumulation
+      data — high-accumulation cells along low-elevation paths are
+      natural drainage line candidates
+- [ ] Basic culvert sizing calculations (Manning's equation for open
+      channel flow, or standard culvert sizing charts) given upstream
+      catchment area and design rainfall
+- [ ] Simple route optimization: given candidate drain points, suggest
+      a connected network to nearest discharge point (could start with
+      least-cost path over the flow-direction raster — you already
+      have this data from Phase 1)
+- [ ] Output: a recommended drainage network layer (GeoJSON lines) with
+      per-segment sizing suggestions, viewable on the frontend map
+- [ ] Explicit engineering-judgment disclaimer: these are data-driven
+      suggestions, not certified engineering designs — same honesty
+      pattern as the rest of the project
+
+**Exit criteria:** for the Velachery zone, the app suggests at least
+one plausible drainage improvement with a sizing justification a
+civil engineer could sanity-check.
+
+---
+
+## Phase 8 — Automated Report Generation
+
+**Goal:** One-click professional output — the "download report" step
+their pitch describes, but actually built.
+
+- [ ] Report template: problem summary, zone overview map, scenario
+      comparison table, flood statistics (flooded %, max depth, volume),
+      drainage recommendations from Phase 7, data sources/methodology
+      appendix
+- [ ] Implementation: Python-side generation (`reportlab` or
+      `weasyprint` from an HTML/Jinja2 template) — produces PDF from
+      whichever scenario/parameters the user selected on the frontend
+- [ ] Frontend: "Generate Report" button on the dashboard, triggers
+      client-side or lightweight serverless generation (keep the
+      no-backend architecture if possible — e.g. generate report data
+      client-side, render via a PDF library in-browser)
+- [ ] Include the honesty/limitations section automatically in every
+      report — non-negotiable, keeps every output consistent with the
+      project's stated scope
+
+**Exit criteria:** a user can click one button and download a
+shareable PDF summarizing a specific flood scenario for the zone.
+
+---
+
+## Phase 9 — Advanced Analysis & Usability
+
+**Goal:** Convenience features that make the tool genuinely nicer to
+use, not just technically capable.
+
+- [ ] Multi-scenario side-by-side comparison view (beyond the single
+      baseline-vs-scenario toggle from Phase 6's optional polish)
+- [ ] Session/project state: let a user save a specific
+      rainfall/runoff configuration and return to it later (URL params
+      are the simplest version — no backend needed)
+- [ ] Export current view as an image/map snapshot (not just the full
+      PDF report — quick share-a-screenshot capability)
+- [ ] Basic accessibility/UX pass: keyboard navigation for sliders,
+      color-blind-safe palette option for the depth colormap
+- [ ] Performance check once Phase 7/8 features are added — confirm
+      the app is still fast and the static-deployment architecture
+      still holds, or make a deliberate call to add a lightweight
+      backend if genuinely needed
+
+**Exit criteria:** the tool feels like a polished product, not just a
+working prototype — someone unfamiliar with the project could use it
+without guidance.
+
+---
+
+## Phase 10 — Multi-City Expansion at Scale
+
+**Goal:** Generalize beyond Velachery/Chennai — this extends what
+Phase 6 started, once the pipeline + recommendation engine + reports
+are all proven on one city.
+
+- [ ] Config-driven zone definitions (not hardcoded paths) so adding a
+      city is a config change, not a code change
+- [ ] Add 2-3 more Indian cities with known flood risk and available
+      DEM/rainfall data coverage
+- [ ] Cross-city comparison view (optional stretch)
+- [ ] Document the "adding a new city" process clearly — this is what
+      turns the project from "a Chennai tool" into "a platform,"
+      matching the original scaling ambition without overclaiming
+      before it's true
+
+**Exit criteria:** a second city is live on the deployed site with the
+same feature set as Velachery, following a documented, repeatable process.
+
+---
+
+## Sequencing Note
+
+Phases 7-10 are intentionally sequenced **after** Track B (real
+HEC-RAS integration, Phase 2b/3) — building recommendation engines
+and reports on top of proxy-model data now would mean redoing that
+work once real hydraulics replace the proxy. Track A/B completion
+first, then 7 → 8 → 9 → 10, each independently shippable and
+demoable on its own.
