@@ -1,0 +1,170 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html,
+body,
+#root,
+.app {
+  height: 100%;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+}
+
+.panel {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 14px;
+  z-index: 10;
+  max-width: 320px;
+}
+
+.controls {
+  top: 12px;
+  left: 12px;
+}
+
+.controls h1 {
+  font-size: 1.05rem;
+  margin-bottom: 2px;
+}
+
+.subtitle {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.controls label {
+  display: block;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 10px;
+}
+
+.controls input[type="range"] {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.hint {
+  display: block;
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.clamp-warning {
+  font-size: 0.75rem;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.presets button {
+  font-size: 0.72rem;
+  padding: 5px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.presets button.active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.legend {
+  bottom: 28px;
+  left: 12px;
+  padding: 10px 14px;
+}
+
+.legend-title {
+  font-size: 0.75rem;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.legend-bar {
+  width: 220px;
+  height: 10px;
+  border-radius: 4px;
+}
+
+.legend-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+.info {
+  top: 12px;
+  right: 48px;
+  text-align: right;
+}
+
+.click-readout {
+  font-size: 0.85rem;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.about-toggle {
+  font-size: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.about {
+  text-align: left;
+  font-size: 0.78rem;
+  color: #374151;
+  margin-top: 8px;
+}
+
+.about p {
+  margin-bottom: 8px;
+}
+
+.loading,
+.error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  color: #374151;
+}
+
+@media (max-width: 600px) {
+  .panel {
+    max-width: calc(100vw - 24px);
+  }
+  .info {
+    top: auto;
+    bottom: 90px;
+    right: 12px;
+  }
+}
