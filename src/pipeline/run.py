@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import rasterio
 
+from src.hydraulics import proxy
 from src.pipeline import rainfall, terrain
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -141,6 +142,35 @@ def sanity_checks() -> list[str]:
         except (json.JSONDecodeError, KeyError) as exc:
             failures.append(f"scenarios.json malformed: {exc}")
 
+    # Depth rasters: contract compliance + physical plausibility.
+    # Known simplification: depth is capped at local depression storage; real
+    # spillover routing between depressions is not modeled (Phase 2a proxy).
+    if SCENARIOS.exists():
+        with rasterio.open(DEM_REPROJECTED) as ref:
+            ref_crs, ref_shape, ref_transform = ref.crs, ref.shape, ref.transform
+            ground = ref.read(1, masked=True)
+        with rasterio.open(DEM_FILLED) as f:
+            storage = np.ma.clip(f.read(1, masked=True) - ground, 0, None).filled(0)
+
+        for s in json.loads(SCENARIOS.read_text())["scenarios"]:
+            path = PROCESSED / f"depth_{s['name']}.tif"
+            if not path.exists():
+                failures.append(f"missing output: {path.relative_to(ROOT)}")
+                continue
+            with rasterio.open(path) as src:
+                if src.crs != ref_crs or src.shape != ref_shape or src.transform != ref_transform:
+                    failures.append(f"{path.name}: grid/CRS mismatch with dem_reprojected")
+                    continue
+                depth = src.read(1, masked=True)
+            d = depth.filled(0)
+            if d.min() < 0:
+                failures.append(f"{path.name}: negative depth {d.min():.3f} m")
+            if (d - storage).max() > 0.001:
+                failures.append(
+                    f"{path.name}: depth exceeds depression storage by "
+                    f"{(d - storage).max():.3f} m"
+                )
+
     return failures
 
 
@@ -162,6 +192,8 @@ def main() -> int:
     df = rainfall.fetch_rainfall(RAINFALL_YEAR)
     rainfall.save_sample(df)
     rainfall.build_design_storms()
+
+    proxy.simulate_all()
 
     failures = sanity_checks()
     if failures:
