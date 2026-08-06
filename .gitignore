@@ -4,9 +4,11 @@ __pycache__/
 .venv/
 venv/
 
-# Data (often too large / not meant for git)
-data/*
-!data/.gitkeep
+# Data: rasters and downloads stay out of git, docs and structure stay in
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
 
 # OS/IDE
 .DS_Store
