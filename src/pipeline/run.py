@@ -33,6 +33,9 @@ DEM_CLIPPED = PROCESSED / "dem_clipped.tif"
 DEM_REPROJECTED = PROCESSED / "dem_reprojected.tif"
 SLOPE = PROCESSED / "slope.tif"
 ASPECT = PROCESSED / "aspect.tif"
+DEM_FILLED = PROCESSED / "dem_filled.tif"
+FLOW_DIR = PROCESSED / "flow_dir.tif"
+FLOW_ACC = PROCESSED / "flow_acc.tif"
 
 
 def _read_valid(path: Path) -> np.ndarray:
@@ -46,7 +49,7 @@ def sanity_checks() -> list[str]:
     """Return a list of failure messages; empty list means all good."""
     failures: list[str] = []
 
-    for path in (DEM_CLIPPED, DEM_REPROJECTED, SLOPE, ASPECT):
+    for path in (DEM_CLIPPED, DEM_REPROJECTED, SLOPE, ASPECT, DEM_FILLED, FLOW_DIR, FLOW_ACC):
         if not path.exists():
             failures.append(f"missing output: {path.relative_to(ROOT)}")
     if failures:
@@ -81,6 +84,33 @@ def sanity_checks() -> list[str]:
             f"aspect outside [0, 360] degrees: {directional.min():.1f}..{directional.max():.1f}"
         )
 
+    # Filling only raises cells, never lowers them (epsilon for float32 noise).
+    with rasterio.open(DEM_REPROJECTED) as a, rasterio.open(DEM_FILLED) as b:
+        orig = a.read(1, masked=True)
+        filled = b.read(1, masked=True)
+    diff = (filled - orig).compressed()
+    if diff.min() < -0.001:
+        failures.append(f"dem_filled lowers terrain by {-diff.min():.3f}m somewhere")
+    if diff.max() == 0:
+        failures.append("dem_filled identical to input — no depressions filled (suspicious)")
+
+    # D8 pointer codes: powers of two 1..128, plus 0 for undefined.
+    flow_dir = np.unique(_read_valid(FLOW_DIR))
+    legal = {0, 1, 2, 4, 8, 16, 32, 64, 128}
+    illegal = set(flow_dir.tolist()) - legal
+    if illegal:
+        failures.append(f"flow_dir contains non-D8 values: {sorted(illegal)[:5]}")
+
+    # Accumulation in cells: every cell counts itself; max bounded by cell count.
+    flow_acc = _read_valid(FLOW_ACC)
+    n_cells = flow_acc.size
+    if flow_acc.min() < 1:
+        failures.append(f"flow_acc min {flow_acc.min():.2f} < 1 cell")
+    if flow_acc.max() > n_cells:
+        failures.append(f"flow_acc max {flow_acc.max():.0f} exceeds cell count {n_cells}")
+    if flow_acc.max() < 100:
+        failures.append("flow_acc max < 100 cells — drainage network failed to form")
+
     return failures
 
 
@@ -95,6 +125,9 @@ def main() -> int:
     terrain.reproject_dem(DEM_CLIPPED, DEM_REPROJECTED)
     terrain.compute_slope(DEM_REPROJECTED, SLOPE)
     terrain.compute_aspect(DEM_REPROJECTED, ASPECT)
+    terrain.fill_depressions(DEM_REPROJECTED, DEM_FILLED)
+    terrain.compute_flow_direction(DEM_FILLED, FLOW_DIR)
+    terrain.compute_flow_accumulation(DEM_FILLED, FLOW_ACC)
 
     failures = sanity_checks()
     if failures:

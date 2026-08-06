@@ -166,6 +166,60 @@ def compute_slope(dem_path: str | Path, out_path: str | Path) -> Path:
     return out_path
 
 
+def fill_depressions(dem_path: str | Path, out_path: str | Path) -> Path:
+    """Hydrologically condition the DEM: raise pits to their spill elevation.
+
+    DEM noise creates artificial pits where D8 routing strands water and
+    truncates flow paths. After filling, every cell drains continuously to the
+    raster edge. fix_flats adds tiny gradients across the filled (now flat)
+    areas so D8 still has a defined direction there.
+
+    Note for Phase 2a: (filled - original) is the depression storage depth —
+    the proxy flood model reads pooling straight from that difference.
+
+    Uses the Wang & Liu (2006) priority-flood variant: WhiteboxTools v2.4.0's
+    plain FillDepressions panics ("Error unwrapping 'output'") on this input
+    while still exiting 0 — hence also the explicit output-file check below.
+    """
+    dem_path, out_path = Path(dem_path).resolve(), Path(out_path).resolve()
+    ret = _wbt().fill_depressions_wang_and_liu(str(dem_path), str(out_path), fix_flats=True)
+    if ret != 0 or not out_path.exists():
+        raise RuntimeError(f"WhiteboxTools fill_depressions failed (exit {ret}) for {dem_path}")
+    logger.info("Filled DEM written -> %s", out_path.name)
+    return out_path
+
+
+def compute_flow_direction(filled_dem_path: str | Path, out_path: str | Path) -> Path:
+    """D8 flow pointer: which of the 8 neighbors each cell drains into.
+
+    Values are WhiteboxTools pointer codes (powers of two, 1..128, clockwise
+    from NE); 0 means no defined direction. Input must be a filled DEM.
+    """
+    filled_dem_path, out_path = Path(filled_dem_path).resolve(), Path(out_path).resolve()
+    ret = _wbt().d8_pointer(str(filled_dem_path), str(out_path))
+    if ret != 0 or not out_path.exists():
+        raise RuntimeError(f"WhiteboxTools d8_pointer failed (exit {ret}) for {filled_dem_path}")
+    logger.info("Flow direction written -> %s", out_path.name)
+    return out_path
+
+
+def compute_flow_accumulation(filled_dem_path: str | Path, out_path: str | Path) -> Path:
+    """D8 flow accumulation: how many upstream cells drain through each cell.
+
+    Output unit is cells (out_type="cells"): every cell counts itself, so the
+    minimum is 1; large values trace the drainage network. Multiply by cell
+    area to get contributing area in m².
+    """
+    filled_dem_path, out_path = Path(filled_dem_path).resolve(), Path(out_path).resolve()
+    ret = _wbt().d8_flow_accumulation(str(filled_dem_path), str(out_path), out_type="cells")
+    if ret != 0 or not out_path.exists():
+        raise RuntimeError(
+            f"WhiteboxTools d8_flow_accumulation failed (exit {ret}) for {filled_dem_path}"
+        )
+    logger.info("Flow accumulation written -> %s", out_path.name)
+    return out_path
+
+
 def compute_aspect(dem_path: str | Path, out_path: str | Path) -> Path:
     """Aspect: compass direction each cell faces, degrees clockwise from north.
 
