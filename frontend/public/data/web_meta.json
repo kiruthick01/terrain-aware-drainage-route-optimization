@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "crs": "EPSG:4326",
+  "width": 251,
+  "height": 188,
+  "bounds": {
+    "west": 80.18830376508448,
+    "south": 12.948121756351288,
+    "east": 80.25802967505605,
+    "north": 13.000346740712464
+  },
+  "units": "mm",
+  "dtype": "uint16",
+  "endianness": "little",
+  "order": "row-major, row 0 = northernmost",
+  "nodata": 65535,
+  "base_runoff_coeff": 0.75,
+  "scenarios": [
+    {
+      "name": "moderate",
+      "rainfall_mm": 50,
+      "file": "depth_moderate.bin",
+      "max_depth_mm": 5934
+    },
+    {
+      "name": "heavy",
+      "rainfall_mm": 100,
+      "file": "depth_heavy.bin",
+      "max_depth_mm": 6564
+    },
+    {
+      "name": "severe",
+      "rainfall_mm": 150,
+      "file": "depth_severe.bin",
+      "max_depth_mm": 6564
+    },
+    {
+      "name": "extreme",
+      "rainfall_mm": 250,
+      "file": "depth_extreme.bin",
+      "max_depth_mm": 6564
+    },
+    {
+      "name": "extreme_2015_peak",
+      "rainfall_mm": 350,
+      "file": "depth_extreme_2015_peak.bin",
+      "max_depth_mm": 7362
+    }
+  ]
+}
