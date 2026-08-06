@@ -19,6 +19,7 @@ import rasterio
 
 from src.hydraulics import proxy
 from src.pipeline import rainfall, terrain
+from src.simulation import engine, export
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("pipeline.run")
@@ -171,6 +172,41 @@ def sanity_checks() -> list[str]:
                     f"{(d - storage).max():.3f} m"
                 )
 
+    # Web export: all files present, under the frontend size budget.
+    web_meta = export.WEB_DIR / "web_meta.json"
+    if not web_meta.exists():
+        failures.append(f"missing output: {web_meta.relative_to(ROOT)}")
+    else:
+        try:
+            meta = json.loads(web_meta.read_text())
+            expected_bytes = meta["width"] * meta["height"] * 2
+            for m in meta["scenarios"]:
+                f = export.WEB_DIR / m["file"]
+                if not f.exists():
+                    failures.append(f"missing output: {f.relative_to(ROOT)}")
+                elif f.stat().st_size != expected_bytes:
+                    failures.append(
+                        f"{f.name}: {f.stat().st_size} bytes, expected {expected_bytes}"
+                    )
+                elif f.stat().st_size > 3 * 1024 * 1024:
+                    failures.append(f"{f.name} exceeds 3 MB frontend budget")
+        except (json.JSONDecodeError, KeyError) as exc:
+            failures.append(f"web_meta.json malformed: {exc}")
+
+    # Engine: interpolated queries plausible and monotonic in rainfall.
+    prev_volume = -1.0
+    for mm in (0, 75, 125, 200, 300, 500):
+        grid = engine.get_flood_state(mm)
+        wet = grid[grid != engine.NODATA]
+        if wet.min() < 0:
+            failures.append(f"engine({mm}mm): negative depth {wet.min():.3f}")
+        volume = float(wet.sum())
+        if volume < prev_volume - 0.001:
+            failures.append(f"engine({mm}mm): flooded volume decreased vs previous query")
+        prev_volume = volume
+    if float(engine.get_flood_state(0).max()) > 0:
+        failures.append("engine(0mm): expected fully dry grid")
+
     return failures
 
 
@@ -194,6 +230,7 @@ def main() -> int:
     rainfall.build_design_storms()
 
     proxy.simulate_all()
+    export.export_web()
 
     failures = sanity_checks()
     if failures:
