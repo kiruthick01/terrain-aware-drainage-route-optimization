@@ -1,5 +1,6 @@
 geopandas==1.1.4
 imdlib==0.1.21
+matplotlib==3.11.1
 numpy==2.5.1
 pandas==3.0.5
 pyproj==3.7.2
