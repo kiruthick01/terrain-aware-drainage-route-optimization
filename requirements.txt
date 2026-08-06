@@ -1,0 +1,6 @@
+geopandas==1.1.4
+numpy==2.5.1
+pyproj==3.7.2
+rasterio==1.5.0
+shapely==2.1.2
+whitebox==2.3.6
