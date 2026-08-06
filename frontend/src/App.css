@@ -162,9 +162,14 @@ body,
   .panel {
     max-width: calc(100vw - 24px);
   }
+  /* Stack info panel above the legend so the boxes never collide. */
   .info {
     top: auto;
-    bottom: 90px;
+    bottom: 150px;
     right: 12px;
+  }
+  /* Pinch-zoom replaces the nav buttons; they'd sit behind the controls. */
+  .maplibregl-ctrl-top-right {
+    display: none;
   }
 }
