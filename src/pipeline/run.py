@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import rasterio
 
-from src.pipeline import terrain
+from src.pipeline import rainfall, terrain
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("pipeline.run")
@@ -36,6 +36,9 @@ ASPECT = PROCESSED / "aspect.tif"
 DEM_FILLED = PROCESSED / "dem_filled.tif"
 FLOW_DIR = PROCESSED / "flow_dir.tif"
 FLOW_ACC = PROCESSED / "flow_acc.tif"
+RAINFALL_SAMPLE = rainfall.SAMPLE_CSV
+SCENARIOS = rainfall.SCENARIOS_JSON
+RAINFALL_YEAR = 2015
 
 
 def _read_valid(path: Path) -> np.ndarray:
@@ -111,6 +114,33 @@ def sanity_checks() -> list[str]:
     if flow_acc.max() < 100:
         failures.append("flow_acc max < 100 cells — drainage network failed to form")
 
+    # Rainfall artifacts.
+    import json
+
+    if not RAINFALL_SAMPLE.exists():
+        failures.append(f"missing output: {RAINFALL_SAMPLE.relative_to(ROOT)}")
+    else:
+        import pandas as pd
+
+        rain = pd.read_csv(RAINFALL_SAMPLE)["rain_mm"].dropna()
+        if len(rain) < 300:
+            failures.append(f"rainfall sample has only {len(rain)} valid days")
+        if rain.min() < 0 or rain.max() > 500:
+            failures.append(f"rainfall outside [0, 500] mm: {rain.min():.1f}..{rain.max():.1f}")
+
+    if not SCENARIOS.exists():
+        failures.append(f"missing output: {SCENARIOS.relative_to(ROOT)}")
+    else:
+        try:
+            payload = json.loads(SCENARIOS.read_text())
+            for s in payload["scenarios"]:
+                if not {"name", "rainfall_mm", "description"} <= set(s):
+                    failures.append(f"scenario missing keys: {s}")
+                elif not 0 < s["rainfall_mm"] <= 500:
+                    failures.append(f"scenario {s['name']} rainfall {s['rainfall_mm']} implausible")
+        except (json.JSONDecodeError, KeyError) as exc:
+            failures.append(f"scenarios.json malformed: {exc}")
+
     return failures
 
 
@@ -128,6 +158,10 @@ def main() -> int:
     terrain.fill_depressions(DEM_REPROJECTED, DEM_FILLED)
     terrain.compute_flow_direction(DEM_FILLED, FLOW_DIR)
     terrain.compute_flow_accumulation(DEM_FILLED, FLOW_ACC)
+
+    df = rainfall.fetch_rainfall(RAINFALL_YEAR)
+    rainfall.save_sample(df)
+    rainfall.build_design_storms()
 
     failures = sanity_checks()
     if failures:
