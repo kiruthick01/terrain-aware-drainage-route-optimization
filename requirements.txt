@@ -7,3 +7,8 @@ pyproj==3.7.2
 rasterio==1.5.0
 shapely==2.1.2
 whitebox==2.3.6
+
+# Track B — HEC-RAS integration (Windows only)
+ras-commander==0.99.1
+h5py==3.16.0
+pywin32==312; sys_platform == "win32"

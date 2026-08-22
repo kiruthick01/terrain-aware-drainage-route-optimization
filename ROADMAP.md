@@ -184,13 +184,85 @@ flooding change on a real Chennai neighborhood.
       waterlogging spots; label clearly as qualitative only)
 
 ## Phase 2b — Real HEC-RAS  [Track B — needs Windows]
-- [ ] Manual RAS Mapper terrain import → 2D flow area over zone polygon
-      → rain-on-grid boundary condition → unsteady run
-- [ ] Manning's n layer from OSM land use (roads/buildings/vegetation)
-- [ ] RAS-Commander automation of runs per scenario
-- [ ] Adapter `src/hydraulics/hecras_adapter.py` emitting the Phase 2a
-      output contract → frontend upgrade is automatic
-- [ ] Update README: proxy → HEC-RAS upgrade story
+
+**Goal:** swap the fill-and-spill proxy for real 2D unsteady HEC-RAS output,
+through the existing `src/hydraulics/README.md` contract, so Phase 4's engine
+and the frontend need zero changes to consume it. HEC-RAS 7.0 is already
+installed on this machine.
+
+**Key decisions locked in (2026-08-22, see devlog):**
+- Rainfall: convert each scenario's daily total into a synthetic design
+  hyetograph (NRCS/SCS Type II, ~24h) — no new rainfall data sourcing.
+- Losses: switch from the proxy's flat runoff coefficient to SCS Curve
+  Number, derived from OSM land use. This is more physically real but
+  breaks `engine.py`'s "equivalent rainfall" interpolation trick (see its
+  own docstring caveat) — HEC-RAS output is not expressible as one rainfall
+  scaling. To keep both frontend sliders live, precompute **3 antecedent
+  moisture classes per scenario (CN-I dry / CN-II normal / CN-III wet)**
+  instead of 1, and 2D-interpolate (rainfall × wetness) in the engine.
+- Mesh: 10 m 2D flow-area cells (3x finer than the 30 m DEM).
+
+### 2b.1 Environment
+- [x] `pip install ras-commander h5py pywin32` (RAS-Commander drives RAS via
+      COM automation; h5py reads plan result HDF5 for depth extraction)
+- [x] Confirm RAS-Commander resolves the installed HEC-RAS 7.0 executable
+      (`get_ras_exe("7.0")` → `C:\Program Files (x86)\HEC\HEC-RAS\7.0\Ras.exe`,
+      verified to exist). Full launch/COM control needs an actual `.prj`
+      project, which doesn't exist until 2b.4 — deferred to there.
+      Noted risk: HEC-RAS shows a one-time "Terms and Conditions" modal per
+      Windows user+version that blocks headless COM launches until accepted
+      (`ras_commander.RasTcu`, `init_ras_project(..., accept_tcu=True)`) —
+      handle when we get to first automated run in 2b.5.
+
+### 2b.2 Land use → roughness + curve number — `src/pipeline/landuse.py`
+- [ ] Fetch OSM buildings/roads/landuse/landcover for the zone bbox (osmnx)
+      → `data/raw/osm_landuse.geojson`; document source/license in
+      `data/README.md` like the DEM and rainfall entries
+- [ ] Rasterize onto the `dem_reprojected.tif` grid → `data/processed/landuse.tif`
+- [ ] Manning's n lookup table per class (paved/roof/vegetation/water —
+      standard published ranges) → RAS Mapper Land Cover layer
+- [ ] SCS Curve Number lookup per class, assuming one representative
+      hydrologic soil group (no soil survey data available — document as
+      an explicit limitation, same honesty pattern as the proxy's own
+      caveats) → RAS Mapper loss-method layer
+
+### 2b.3 Rainfall hyetograph — `src/hydraulics/hyetograph.py`
+- [ ] `build_hyetograph(daily_total_mm, duration_hr=24, method="scs_type_ii")`
+      → incremental time series per scenario
+- [ ] Resolve how HEC-RAS ingests it as a precip boundary (DSS time series
+      is the native path — evaluate `pydsstools`/RAS-Commander helpers vs.
+      manual DSSVue step; flag as an open risk, not yet proven)
+- [ ] Generate one hyetograph per (scenario x AMC class) — 15 total
+
+### 2b.4 Manual RAS Mapper model build (once, GUI)
+- [ ] New project, projection EPSG:32644, import `dem_reprojected.tif` as
+      terrain
+- [ ] 2D flow area = zone polygon, mesh at 10 m
+- [ ] Attach Land Cover (Manning's n) and Curve Number layers from 2b.2
+- [ ] Precipitation (rain-on-grid) boundary condition, spatially uniform
+      (matches the existing coarse-rainfall-grid limitation from SCOPE.md)
+- [ ] Unsteady plan template: storm duration + drain-down tail, computational
+      time step sized to Courant condition at 10 m cells
+
+### 2b.5 Automation — `src/hydraulics/hecras_adapter.py`
+- [ ] RAS-Commander script: for each of the 15 (scenario x AMC) combos, set
+      the plan's precip BC + CN layer, run unsteady, wait for completion
+- [ ] Extract max water-surface/depth from the plan result HDF5
+- [ ] Resample from the RAS mesh onto the exact `dem_reprojected.tif`
+      grid/transform (mesh cells != DEM cells) and emit
+      `depth_<scenario>_<amc>.tif` matching the Phase 2a contract exactly
+      (float32, EPSG:32644, nodata -9999)
+
+### 2b.6 Engine + frontend follow-up (small, contract-driven)
+- [ ] `engine.py`: replace the 1D "equivalent rainfall" fold with 2D
+      interpolation over (rainfall, AMC); update `scenarios.json`
+      schema/loader for the 3x anchor set
+- [ ] `Controls.jsx`: relabel the runoff slider "soil wetness" (dry/normal/wet)
+- [ ] Update README: proxy → HEC-RAS upgrade story, note the CN/AMC change
+
+**Exit criteria:** at least one HEC-RAS run per scenario produces a
+contract-compliant depth raster via the automated adapter, end-to-end from
+`data/raw/` with no manual per-run GUI steps after the model template exists.
 
 ## Phase 6 — Expansion & Documentation  [Track A+B]
 - [ ] Generalize pipeline config to second city (data availability first)
