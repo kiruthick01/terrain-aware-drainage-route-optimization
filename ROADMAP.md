@@ -233,14 +233,35 @@ installed on this machine.
       as an explicit limitation same as the proxy's own caveats) →
       `data/processed/curve_number.tif`, ready for RAS Mapper's loss-method
       layer
+- [x] AMC-I (dry) / AMC-III (wet) Curve Number rasters, derived from the
+      AMC-II raster above via the standard Mockus (1964) conversion formula
+      (closed-form, not a table — no sourcing risk like 2b.3's) →
+      `data/processed/curve_number_{dry,wet}.tif`
 
 ### 2b.3 Rainfall hyetograph — `src/hydraulics/hyetograph.py`
-- [ ] `build_hyetograph(daily_total_mm, duration_hr=24, method="scs_type_ii")`
-      → incremental time series per scenario
-- [ ] Resolve how HEC-RAS ingests it as a precip boundary (DSS time series
-      is the native path — evaluate `pydsstools`/RAS-Commander helpers vs.
-      manual DSSVue step; flag as an open risk, not yet proven)
-- [ ] Generate one hyetograph per (scenario x AMC class) — 15 total
+- [x] `build_hyetograph(daily_total_mm, duration_hr=24, dt_hr=0.5)` →
+      incremental time series per scenario. **Scope correction:** only 5
+      hyetographs needed (one per rainfall scenario), not 15 — AMC only
+      changes the curve-number loss layer (2b.2), not the rainfall input;
+      all 3 AMC variants of a scenario reuse its one hyetograph.
+- [x] **Could not source the literal NRCS Type II table.** Every source
+      found (NRCS/USDA PDFs, state DOT manuals, vendor docs) was a scanned
+      image, not machine-readable text, and this project has no OCR to
+      verify digit-level values. Used a calibrated logistic-curve
+      approximation instead — centered on a 12h peak, tuned so ~40% of the
+      daily total falls in the single hour around it (the one Type II
+      summary statistic consistently corroborated across sources), rather
+      than risk baking a mistranscribed table into the hydraulic model.
+      Documented in the module docstring as an explicit limitation, same
+      honesty pattern as the proxy's own caveats. Revisit if Phase 3
+      validation later needs literal NRCS-table fidelity.
+- [x] Resolved the DSS boundary-condition question: `pydsstools` installs
+      on Windows but force-downgrades numpy to <2, breaking
+      rasterio/scipy in this project's shared venv — not usable without a
+      separate isolated environment. With only 5 files to import (not 15),
+      going with a one-time manual HEC-DSSVue import per scenario instead;
+      an isolated pydsstools venv stays a fallback if that's too tedious
+      once 2b.5 needs this unattended.
 
 ### 2b.4 Manual RAS Mapper model build (once, GUI)
 - [ ] New project, projection EPSG:32644, import `dem_reprojected.tif` as
@@ -253,8 +274,9 @@ installed on this machine.
       time step sized to Courant condition at 10 m cells
 
 ### 2b.5 Automation — `src/hydraulics/hecras_adapter.py`
-- [ ] RAS-Commander script: for each of the 15 (scenario x AMC) combos, set
-      the plan's precip BC + CN layer, run unsteady, wait for completion
+- [ ] RAS-Commander script: for each of the 15 plans (5 hyetographs from
+      2b.3 x 3 CN layers from 2b.2), set the plan's precip BC + CN layer,
+      run unsteady, wait for completion
 - [ ] Extract max water-surface/depth from the plan result HDF5
 - [ ] Resample from the RAS mesh onto the exact `dem_reprojected.tif`
       grid/transform (mesh cells != DEM cells) and emit

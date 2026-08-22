@@ -189,6 +189,47 @@ def build_curve_number(landuse_path: Path = LANDUSE_TIF, out_path: Path = CURVE_
     return out_path
 
 
+def amc_curve_number(cn2: np.ndarray, amc: str) -> np.ndarray:
+    """Convert a normal-condition (AMC-II) Curve Number to AMC-I (dry) or
+    AMC-III (wet) -- the standard NRCS antecedent-moisture adjustment
+    (Mockus 1964; widely reproduced, e.g. NEH630 Ch.10 eq. 10-11/10-12).
+    Unlike the Type II storm shape (see hyetograph.py), these are simple
+    closed-form formulas, not a table -- no sourcing/verification risk."""
+    if amc == "dry":
+        return 4.2 * cn2 / (10 - 0.058 * cn2)
+    if amc == "wet":
+        return 23 * cn2 / (10 + 0.13 * cn2)
+    raise ValueError(f"amc must be 'dry' or 'wet', got {amc!r}")
+
+
+def build_curve_number_amc(
+    cn2_path: Path = CURVE_NUMBER_TIF, out_dir: Path = PROCESSED
+) -> dict[str, Path]:
+    """Derive AMC-I (dry) and AMC-III (wet) Curve Number rasters from the
+    AMC-II (normal) raster built by build_curve_number(). Track B precomputes
+    3 antecedent-moisture classes per rainfall scenario (ROADMAP.md Phase
+    2b) -- these are the other two; the hyetograph itself doesn't change
+    with AMC, only this loss layer does."""
+    with rasterio.open(cn2_path) as src:
+        cn2 = src.read(1)
+        profile = src.profile.copy()
+
+    valid = cn2 != NODATA
+    out = {}
+    for amc in ("dry", "wet"):
+        cn = np.full(cn2.shape, NODATA, dtype="float32")
+        cn[valid] = amc_curve_number(cn2[valid], amc)
+        path = out_dir / f"curve_number_{amc}.tif"
+        with rasterio.open(path, "w", **profile) as dst:
+            dst.write(cn, 1)
+        logger.info(
+            "Curve number (%s) written -> %s (range %.0f-%.0f)",
+            amc, path.name, cn[valid].min(), cn[valid].max(),
+        )
+        out[amc] = path
+    return out
+
+
 def write_classes_table(out_path: Path = CLASSES_CSV) -> Path:
     """Class lookup table: RAS Mapper's Land Cover Manager imports the
     (class_value, manning_n) columns directly; curve_number is kept
@@ -207,6 +248,7 @@ def build_all() -> None:
     features = fetch_landuse()
     rasterize_landuse(features)
     build_curve_number()
+    build_curve_number_amc()
     write_classes_table()
 
 
