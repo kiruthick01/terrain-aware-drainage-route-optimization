@@ -215,16 +215,24 @@ installed on this machine.
       handle when we get to first automated run in 2b.5.
 
 ### 2b.2 Land use → roughness + curve number — `src/pipeline/landuse.py`
-- [ ] Fetch OSM buildings/roads/landuse/landcover for the zone bbox (osmnx)
-      → `data/raw/osm_landuse.geojson`; document source/license in
-      `data/README.md` like the DEM and rainfall entries
-- [ ] Rasterize onto the `dem_reprojected.tif` grid → `data/processed/landuse.tif`
-- [ ] Manning's n lookup table per class (paved/roof/vegetation/water —
-      standard published ranges) → RAS Mapper Land Cover layer
-- [ ] SCS Curve Number lookup per class, assuming one representative
-      hydrologic soil group (no soil survey data available — document as
-      an explicit limitation, same honesty pattern as the proxy's own
-      caveats) → RAS Mapper loss-method layer
+- [x] Fetch OSM buildings/roads/water/vegetation-landuse for the zone
+      (osmnx/Overpass, ~45k features) → `data/raw/osm_landuse.geojson`;
+      documented source/license in `data/README.md` like the DEM and
+      rainfall entries
+- [x] Rasterize onto the `dem_reprojected.tif` grid (5 classes + nodata,
+      roads buffered 4m since OSM highways are centerlines) →
+      `data/processed/landuse.tif` — grid/CRS/transform verified identical
+      to `dem_reprojected.tif`
+- [x] Manning's n lookup table per class (Chow 1959 urban ranges:
+      vegetation 0.035, water 0.030, paved 0.013, building 0.015,
+      unclassified-urban-mix 0.025) → `data/processed/landuse_classes.csv`,
+      ready for RAS Mapper's Land Cover Manager import
+- [x] SCS Curve Number lookup per class (NRCS TR-55, Hydrologic Soil Group D
+      throughout — no soil survey data for this zone; Group D is the
+      conservative match for Velachery's known drainage problems, documented
+      as an explicit limitation same as the proxy's own caveats) →
+      `data/processed/curve_number.tif`, ready for RAS Mapper's loss-method
+      layer
 
 ### 2b.3 Rainfall hyetograph — `src/hydraulics/hyetograph.py`
 - [ ] `build_hyetograph(daily_total_mm, duration_hr=24, method="scs_type_ii")`
