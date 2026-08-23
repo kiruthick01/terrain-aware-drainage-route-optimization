@@ -17,6 +17,9 @@ frontend/dist/
 # osmnx Overpass response cache
 cache/
 
+# HEC-RAS project: binary geometry/plan/results (HDF5), GUI-built in 2b.4
+hecras/
+
 # OS/IDE
 .DS_Store
 .vscode/
